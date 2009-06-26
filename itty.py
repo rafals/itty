@@ -1,40 +1,15 @@
-"""
-The itty-bitty Python web framework.
-
-Totally ripping off Sintra, the Python way. Very useful for small applications,
-especially web services. Handles basic HTTP methods (PUT/DELETE too!). Errs on
-the side of fun and terse.
-
-
-Example Usage::
-
-    from itty import get, run_itty
-
-      @get('/')
-      def index(request):
-          return 'Hello World!'
-
-      run_itty()
-
-
-Thanks go out to Matt Croydon & Christian Metts for putting me up to this late
-at night. The joking around has become reality. :)
-"""
 import cgi
 import mimetypes
 import os
 import re
 import sys
 import urlparse
-try:
-    from urlparse import parse_qs
-except ImportError:
-    from cgi import parse_qs
+from cgi import parse_qs
+from google.appengine.ext.webapp import util
 
 __author__ = 'Daniel Lindsley'
 __version__ = ('0', '5', '1')
 __license__ = 'BSD'
-
 
 REQUEST_MAPPINGS = {
     'GET': [],
@@ -370,97 +345,5 @@ def redirect(request, exception):
     request._start_response(HTTP_MAPPINGS[302], [('Content-Type', 'text/plain'), ('Location', exception.url)])
     return ['']
 
-
-# Servers Adapters
-
-def wsgiref_adapter(host, port):
-    from wsgiref.simple_server import make_server
-    srv = make_server(host, port, handle_request)
-    srv.serve_forever()
-
-
-def appengine_adapter(host, port):
-    from google.appengine.ext.webapp import util
-    util.run_wsgi_app(handle_request)
-
-
-def cherrypy_adapter(host, port):
-    # Experimental (Untested).
-    from cherrypy import wsgiserver
-    server = wsgiserver.CherryPyWSGIServer((host, port), handle_request)
-    server.start()
-
-
-def flup_adapter(host, port):
-    # Experimental (Untested).
-    from flup.server.fcgi import WSGIServer
-    WSGIServer(handle_request, bindAddress=(host, port)).run()
-
-
-def paste_adapter(host, port):
-    # Experimental (Untested).
-    from paste import httpserver
-    httpserver.serve(handle_request, host=host, port=str(port))
-
-
-def twisted_adapter(host, port):
-    from twisted.application import service, strports
-    from twisted.web import server, http, wsgi
-    from twisted.python.threadpool import ThreadPool
-    from twisted.internet import reactor
-    
-    thread_pool = ThreadPool()
-    thread_pool.start()
-    reactor.addSystemEventTrigger('after', 'shutdown', thread_pool.stop)
-    
-    ittyResource = wsgi.WSGIResource(reactor, thread_pool, handle_request)
-    site = server.Site(ittyResource)
-    reactor.listenTCP(port, site)
-    reactor.run()
-
-
-WSGI_ADAPTERS = {
-    'wsgiref': wsgiref_adapter,
-    'appengine': appengine_adapter,
-    'cherrypy': cherrypy_adapter,
-    'flup': flup_adapter,
-    'paste': paste_adapter,
-    'twisted': twisted_adapter,
-}
-
-# Server
-
-def run_itty(server='wsgiref', host='localhost', port=8080, config=None):
-    """
-    Runs the itty web server.
-    
-    Accepts an optional host (string), port (integer), server (string) and
-    config (python module name/path as a string) parameters.
-    
-    By default, uses Python's built-in wsgiref implementation. Specify a server
-    name from WSGI_ADAPTERS to use an alternate WSGI server.
-    """
-    if not server in WSGI_ADAPTERS:
-        raise RuntimeError("Server '%s' is not a valid server. Please choose a different server.")
-    
-    if config is not None:
-        # We'll let ImportErrors bubble up.
-        config_options = __import__(config)
-        host = getattr(config_options, 'host', host)
-        port = getattr(config_options, 'port', port)
-        server = getattr(config_options, 'server', server)
-    
-    # AppEngine seems to echo everything, even though it shouldn't. Accomodate.
-    if server != 'appengine':
-        print 'itty starting up (using %s)...' % server
-        print 'Listening on http://%s:%s...' % (host, port)
-        print 'Use Ctrl-C to quit.'
-        print
-    
-    try:
-        WSGI_ADAPTERS[server](host, port)
-    except KeyboardInterrupt:
-        if server != 'appengine':
-            print "Shuting down..."
-        
-        sys.exit()
+def run():
+   util.run_wsgi_app(handle_request)
